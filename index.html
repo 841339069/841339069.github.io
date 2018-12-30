@@ -229,6 +229,131 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/30/linux之僵尸孤儿守护三连/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="John Doe">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/12/30/linux之僵尸孤儿守护三连/" itemprop="url">linux之僵尸孤儿守护三连</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2018-12-30T20:08:22+08:00">
+                2018-12-30
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h2 id="僵尸进程"><a href="#僵尸进程" class="headerlink" title="僵尸进程"></a>僵尸进程</h2><h3 id="僵尸进程的原因"><a href="#僵尸进程的原因" class="headerlink" title="僵尸进程的原因"></a>僵尸进程的原因</h3><p>一个进程在调用exit结束自己的生命的时候，并没有真正的全部销毁，在Linux中，仅占有一个进程描述符的大小，它等待着父进程来给他收尸，如果父进程没有调用wait/waitpid函数来替子进程收尸，或者，没有忽略SIGCHLD信号(忽略SIGCHLD就是把子进程丢给INIT管)。然后这个进程虽然已经没有任何地址空间的浪费了，但是他空占着一个进程描述符，如果一个进程组被这种僵尸进程占满，后果可想而知。</p>
+<h3 id="解决的办法："><a href="#解决的办法：" class="headerlink" title="解决的办法："></a>解决的办法：</h3><p>1.主动设置signal函数忽略SIGCHLD信号，使僵尸进程变成孤儿进程<br>eg：<br>   signal(SIGCHLD,SIG_IGN)<br>2.编写handler函数，收到SIGCHLD信号后，执行waitpid/wait，将其回收。<br>   handler(int sign){<br>     if(sign==SIGCHLD)<br>       wait(NULL);<br>}<br>   signal(SIGCHLD,handler);</p>
+<p>##孤儿进程<br>如果父进程在子进程结束之前先结束，子进程就会由INIT进程管理，变成孤儿进程，没有危害。</p>
+<p>##守护进程</p>
+<h3 id="守护进程的作用："><a href="#守护进程的作用：" class="headerlink" title="守护进程的作用："></a>守护进程的作用：</h3><p>守护进程没有控制终端，它不因为用户，终端，或其他变化而受到影响。<br>linux中很多服务都是通过守护进程实现的，完成了很多系统服务：<br>调度进程，init进程都是守护进程。</p>
+<h3 id="如何创建一个守护进程"><a href="#如何创建一个守护进程" class="headerlink" title="如何创建一个守护进程"></a>如何创建一个守护进程</h3><p>eg：<br>1.杀死父进程<br>让子进程从父进程中脱离出来，所有的工作都是在子进程中进行，形成形式上的脱离控制<br>2.在子进程中创建新对话<br>setsid()函数<br>创建一个新的进程组，并且子进程是组长，形成真正的脱离控制<br>3.改变当前工作目录为根目录<br>chdir(“/“)函数<br>防止占有可卸载的文件系统(也可以用其他目录，只要是不会被卸载的就行，比如说/home or /desktop)<br>4.重设文件权限掩码<br>umask(0)函数<br>防止继承的文件创建屏蔽字屏蔽权限<br>5.关闭不再需要的进程描述符<br>getrlimit(RLIMIT_NOFILE(进程最大描述符),&amp;res);/获得当前进程组的最大描述符。<br>然后用一个循环一个一个的close掉。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/28/tcp从首段到机制到问题终结/">
 
     <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
@@ -613,134 +738,6 @@ header压缩，如上文中所言，对前面提到过HTTP1.x的header带有大�
         
           
             <h2 id="大风歌"><a href="#大风歌" class="headerlink" title="大风歌"></a>大风歌</h2><h3 id="十五岁空间"><a href="#十五岁空间" class="headerlink" title="十五岁空间"></a>十五岁空间</h3>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/20/hello-world/">
-
-    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="John Doe">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Hexo">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/12/20/hello-world/" itemprop="url">Hello World</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">Posted on</span>
-              
-              <time title="Post created" itemprop="dateCreated datePublished" datetime="2018-12-20T23:59:35+08:00">
-                2018-12-20
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-<p>More info: <a href="https://hexo.io/docs/deployment.html" target="_blank" rel="noopener">Deployment</a></p>
-
           
         
       
