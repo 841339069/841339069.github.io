@@ -229,6 +229,154 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/28/tcp从首段到机制到问题终结/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="John Doe">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/12/28/tcp从首段到机制到问题终结/" itemprop="url">tcp从首段到机制到问题终结</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Posted on</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2018-12-28T23:01:55+08:00">
+                2018-12-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h2 id="tcp首段全解"><a href="#tcp首段全解" class="headerlink" title="tcp首段全解"></a>tcp首段全解</h2><p>我觉得想把tcp的首段全部吃透，还真要有把tcp全部吃透的实力。<br>首先，tcp的首段是20个字节<br>    源端口(Sourse Port) | 目的端口(destination Port)<br>              包序列号(Packet Number)<br>           确认号(Acknowledgment Number)<br>首部长度4bit|保留6bit|状态机(TCP flags)6bit|Window(滑动窗口)<br>      效验和(checkion)  |   紧急指针</p>
+<p>这里面最重要的就是以下五点：<br>1.包序列号(Packet Number): 用来解决包乱序问题<br>2.确认号(Acknowledgment Number): 用于确认收到，用来解决不丢包问题<br>3.状态机(TCP flags): 六个状态，博大精深，紧急(URG)，确认(ACK)，推送(PUSH)，重传(RST)，同步(SYN)，终止(FIN)<br>4.Window(滑动窗口)：解决流量控制的核心<br>5.效验和：效验和覆盖了所有tcp报文段，包括tcp首段加上tcp数据段</p>
+<p>##tcp的状态机，三握四挥及相关问题和网络攻击</p>
+<h3 id="先撸一个状态机-左client，右server-："><a href="#先撸一个状态机-左client，右server-：" class="headerlink" title="先撸一个状态机(左client，右server)："></a>先撸一个状态机(左client，右server)：</h3><pre><code>                                                  CLOSE
+                                                                             LISTEN
+SYN_SENT(主动发送SYN)                                                        SYN_RESEVERED(收到SYN)
+                                        ESTABALISH(双方都收到SYN和ACK)
+FIN_WAIT1(发送FIN)                                                           CLOSE_WAIT(收到FIN)
+
+FIN_WAIT2(收到FIN和ACK)  or  CLOSING(收到FIN，发送ACK在收到server的ACK之前)      
+TIME_WAIT(发送ACK已经完毕，等待2msl)
+                                                  CLOSE
+</code></pre><h3 id="连接情况的问题及相关定时器"><a href="#连接情况的问题及相关定时器" class="headerlink" title="连接情况的问题及相关定时器"></a>连接情况的问题及相关定时器</h3><p>连接的确立最重要的就是先要确定包序，SYN的全称英文名是Synchronize Sequence Numbers,就是同步包序列号的意思。</p>
+<h4 id="重传定时器："><a href="#重传定时器：" class="headerlink" title="重传定时器："></a>重传定时器：</h4><p>在server端，发送完ACK+SYN后会启动一个计时器，如果超过这个定时器所规定的时间，就会重传，在linux下面一般默认是五次，<br>这个重传的时间是根据2个RTT往返时间来设定的。如果五次重传都失败了以后，server端就会认为这次的tcp的连接失败，如果对端在发送报文就会放回RST复位报文。</p>
+<h4 id="SYN-flood攻击："><a href="#SYN-flood攻击：" class="headerlink" title="SYN flood攻击："></a>SYN flood攻击：</h4><p>针对重传定时器而量身定制的网络攻击，client端先发送一个SYN数据包，然后下线，然后服务器发送ACK+SYN却没人回答，然后一直重传，如果这种情况大量出现，就会占满server端的连接等等序列，然后server端无法接收新的tcp连接。<br>解决方案：<br>1.上面的重传五次就发送RST复位报文就是为了避免这种情况的发送，可以通过设置采用更少的重传次数来提高效率。<br>2.或者，如果出现队列满的情况，对于队列里的TCP连接，发送一个包含源端口和目的端口和时间戳的报文，如果是攻击者的，就不会有反应，将其丢弃，如果是正常的，就继续留着。</p>
+<h2 id="传输数据的相关分析与流量控制"><a href="#传输数据的相关分析与流量控制" class="headerlink" title="传输数据的相关分析与流量控制"></a>传输数据的相关分析与流量控制</h2><h3 id="关于数据传输与重传"><a href="#关于数据传输与重传" class="headerlink" title="关于数据传输与重传"></a>关于数据传输与重传</h3><p>假如发送端发送了，12345五个报文，而接收端只接收到了1，2，4，5，中间的3报文丢失了，这时候·怎么办呢？</p>
+<h4 id="超时重传与快重传机制"><a href="#超时重传与快重传机制" class="headerlink" title="超时重传与快重传机制"></a>超时重传与快重传机制</h4><p>所谓的超时重传就是：<br>如果接收端没有收到3的报文却收到了4的报文，就会死等，不发送ack=3的tcp数据包，然后发送端开始启动计时器，如果超过了timeout的时间内，就会有两种做法：<br>1.只重传超时的报文。<br>2.重传超时的和超时之后的所有报文。<br>这两种都各有缺点.<br>所以，在这上面的基础上，又引进了新的机制：快重传：<br>如果三的报文没有收到，发送一个ack=3的tcp数据包给发送端，然后又收到了4，5，继续发送ack=3的数据包两次，当发送端连续收到三次ack=3的数据包的时候，就知道三的报文丢失了，不用等到timeout超时，直接重传3报文，然后server端收到后发送ack=6的数据包。</p>
+<p>###滑动窗口与流量控制</p>
+<h4 id="固定窗口"><a href="#固定窗口" class="headerlink" title="固定窗口"></a>固定窗口</h4><p>如果是固定窗口的话，就会引发下面两种问题：<br>1.固定窗口过小，在传输比较大的文件的时候，需要不停的确认，会造成很大的延迟。<br>2.固定窗口过大，server端就会堆积处理不完的tcp数据包，影响链路</p>
+<h4 id="滑动窗口"><a href="#滑动窗口" class="headerlink" title="滑动窗口"></a>滑动窗口</h4><p>滑动窗口就是用来解决流量控制的问题的机制。<br>本质就是描述tcp接收端的tcp数据包缓存大小的数据，发送端根据这个数据知道自己最多发送多少数据。<br>滑动窗口大小的变化：<br>窗口左端向左滑，说明收到了重复的ack，之前发送的tcp数据包有丢失。<br>窗口左端向右滑，说明发送端发送了数据或收到了确认，窗口合拢。<br>窗口右端向右滑，说明用户空间进程接收并释放了缓存，窗口张开。</p>
+<h4 id="滑动窗口的两个问题"><a href="#滑动窗口的两个问题" class="headerlink" title="滑动窗口的两个问题"></a>滑动窗口的两个问题</h4><h5 id="零窗口问题"><a href="#零窗口问题" class="headerlink" title="零窗口问题"></a>零窗口问题</h5><p>如果接收端接收的特别缓慢，那么窗口张开的速度就会很小，而左端窗口合拢的速度比张开要大很多，这时候久之窗口就会变成零，当窗口变成零会怎么办呢？<br>发送端此时就不会发送数据了，而是发送一个试探性的报文，这个报文发送给接收端，希望获得当前的滑动窗口的大小，如果一直为零，在试探几次之后，发送端就会断开连接了。这里就有一个坚持定时器。</p>
+<h5 id="糊涂窗口综合症"><a href="#糊涂窗口综合症" class="headerlink" title="糊涂窗口综合症"></a>糊涂窗口综合症</h5><p>这个问题可能是因发送端发送的数据包小而多引起，也可能是因为接收端处理数据缓慢引起。<br>描述就是窗口只剩很少的字节大小，好比只剩4个字节，而tcp首段加ip首段就有40个字节，用44字节传输这4个字节未免太浪费。<br>对此的解决办法有二：<br>如果是接收端处理数据缓慢，那么，接收端在窗口小到一个临界值的时候，给发送端一个滑动窗口为零的tcp数据包，告知发送端此时不能再发送数据了，等到接收端处理数据，将窗口张开到大于临界值的时候，在通知发送端一个滑动窗口可用的消息，继续发送数据。<br>如果是发送端发送的数据包太小，那么，发送端就要等两种情况再发送数据：<br>1.攒的数据足够多<br>2.接收端通知发送端要发数据了。<br>然而这里最著名的就是nagle算法，如何禁用nagle，<br>int setsockopt(sock_fd,IPPROTO_TCP,TCP_NODELAY,&amp;ch0pt,sizeof(char));</p>
+<h2 id="拥塞控制"><a href="#拥塞控制" class="headerlink" title="拥塞控制"></a>拥塞控制</h2><h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><p>光有流控还不行，如果网络中延迟突然加大，就会导致丢包，而丢包在tcp这里又会选择重传，大量的重传又导致时延的加大，和更多的重传，<br>所以，tcp为了处理这种问题，采用了拥塞控制，常用的拥塞控制有四个方法：慢启动，拥塞避免，快恢复和快重传。</p>
+<h3 id="慢启动"><a href="#慢启动" class="headerlink" title="慢启动"></a>慢启动</h3><p>慢启动一般用于连接刚建立，还没摸清楚情况，设置两个值，一个cwnd(congestion window)，拥塞窗口，设初值为1，一个ssthresh(slow start threshold)慢启动阈值。<br>算法：<br>每收到一个ack确认数据包，cnwd加一；<br>每经过一个RTT时间，cnwd乘2；<br>然后，当cnwd的值大于ssthresh时，进入拥塞避免</p>
+<h3 id="拥塞避免"><a href="#拥塞避免" class="headerlink" title="拥塞避免"></a>拥塞避免</h3><p>进入到拥塞避免，cnwd就不再像指数形式增长了：<br>每收到一个ack数据包，cnwd=cnwd+1/cnwd<br>每经过一个RTT时间，cnwd=cnwd+1<br>直到有数据包丢失，要重传</p>
+<h3 id="快恢复和快重传"><a href="#快恢复和快重传" class="headerlink" title="快恢复和快重传"></a>快恢复和快重传</h3><p>一但网络时延增大，产生了数据包丢失，就要重传，这个过程不但可以发生在拥塞避免的情况，可能慢启动也可能发生，所以：<br>发生了数据包丢失前面已经说过，就采取快重传和快恢复的策略<br>在进入快恢复之前，cnwd和ssthresh的变化如下：<br>cnwd=cnwd/2;<br>ssthresh=cnwd;<br>然后进入到了快恢复：<br>cnwd=cnwd+3*MSS(之前快重传的三个dup ack)；<br>重传丢失的数据包；<br>如果收到dup ack，cnwd=cnwd+1；<br>如果收到新的确认ack，cnwd=ssthresh，进入拥塞避免。</p>
+<h3 id="重传超时问题"><a href="#重传超时问题" class="headerlink" title="重传超时问题"></a>重传超时问题</h3><p>在慢启动或者拥塞避免的情况下丢包重传，一旦过了重传定时器，超时，就要进入慢启动。</p>
+<h2 id="关于粘包和拆包的问题"><a href="#关于粘包和拆包的问题" class="headerlink" title="关于粘包和拆包的问题"></a>关于粘包和拆包的问题</h2><h3 id="粘包拆包出现的原因"><a href="#粘包拆包出现的原因" class="headerlink" title="粘包拆包出现的原因"></a>粘包拆包出现的原因</h3><p>因为tcp是面向字节流的协议，所以是无界的。出现粘包的原因：<br>tcp发送端一次写入的数据小于一个套接字缓冲区的大小，就会导致多次写入，产生粘包。<br>出现拆包原因：tcp发送端一次写入的数据大于一个套接字缓存区的大小，就会导致拆包，放不下，拆成几个包发送。</p>
+<h3 id="解决的办法："><a href="#解决的办法：" class="headerlink" title="解决的办法："></a>解决的办法：</h3><p>无论是对于拆包还是粘包，最重要的就是做好分包，常用的分包方法有以下三种;<br>1.消息长度固定<br>2.使用特殊的字符或字符串来作为消息的边界，(http的headers用\r\n作为边界)<br>3.在每条消息的头部加上一个长度字段(最常用的方法)。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/24/http深入探讨和抓包分析/">
 
     <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
@@ -673,7 +821,7 @@ header压缩，如上文中所言，对前面提到过HTTP1.x的header带有大�
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">3</span>
+                  <span class="site-state-item-count">4</span>
                   <span class="site-state-item-name">posts</span>
                 </a>
               </div>
